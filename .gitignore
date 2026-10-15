@@ -1,0 +1,3 @@
+# secrets & runtime data never go to git
+.env
+data/

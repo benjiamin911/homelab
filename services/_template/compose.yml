@@ -1,0 +1,14 @@
+# 复制这个目录为 services/<你的服务名>/ 并改下面内容。
+services:
+  app:
+    image: example/app:latest
+    container_name: CHANGE_ME
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDR}:8000:8000"          # host:container，host 侧绑 Tailscale IP
+    volumes:
+      - "${DATA_ROOT}/CHANGE_ME:/data"
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
