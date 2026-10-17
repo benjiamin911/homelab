@@ -16,6 +16,8 @@ jobs:
           git -C "$HOME/Projects/homelab" fetch origin main
           git -C "$HOME/Projects/homelab" reset --hard origin/main
       - name: Deploy all services (idempotent)
-        run: "$HOME/Projects/homelab/deploy.sh" up
+        run: |
+          "$HOME/Projects/homelab/deploy.sh" up
       - name: Status
-        run: "$HOME/Projects/homelab/deploy.sh" ps
+        run: |
+          "$HOME/Projects/homelab/deploy.sh" ps
