@@ -23,3 +23,12 @@ Docker Compose 服务集，部署在 jarvis，只经 Tailscale 访问。
 - 机密和数据都不进 git：`.env` 和 `data/` 已在 `.gitignore`。
 - 端口默认绑定 `BIND_ADDR`（Tailscale IP），所以只有你的 tailnet 能访问。
 - 每个服务独立 compose project，互不影响。
+
+## 自动部署（GitOps）
+
+push 到 `main` → 本机 self-hosted runner 自动执行 `deploy.sh up`。不用 SSH。
+
+## 自己的项目构建成镜像
+
+把 `templates/build-image.yml` 复制到项目仓库的 `.github/workflows/`，push 后自动产出
+`ghcr.io/<owner>/<repo>:latest`；在 `services/<名字>/compose.yml` 里直接引用该镜像即可。

@@ -1,0 +1,21 @@
+name: deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    # dedicated runner registered to this repo, living on the homelab host
+    runs-on: [self-hosted, homelab]
+    steps:
+      - name: Pull latest into the canonical checkout (where .env lives)
+        run: |
+          git -C "$HOME/Projects/homelab" fetch origin main
+          git -C "$HOME/Projects/homelab" reset --hard origin/main
+      - name: Deploy all services (idempotent)
+        run: "$HOME/Projects/homelab/deploy.sh" up
+      - name: Status
+        run: "$HOME/Projects/homelab/deploy.sh" ps
