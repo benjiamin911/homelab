@@ -11,6 +11,12 @@ Docker Compose 服务集，部署在 jarvis，只经 Tailscale 访问。
     ./deploy.sh logs <名字>
     ./deploy.sh down <名字>
 
+## 已有服务
+
+- `uptime-kuma`：监控，`http://jarvis:3001`。
+- `syncthing`：Mac ↔ jarvis 双向同步两个 Obsidian vault，GUI `http://jarvis:8384`。首次 `up` 后在 jarvis 上跑一次
+  `./services/syncthing/configure.sh`（幂等）配置文件夹 / 版本控制 / 只走 tailnet / GUI 密码；参数见 `.env.example`。
+
 ## 加一个新服务
 
 1. 建目录 `services/<名字>/compose.yml`（照着 `services/_template/compose.yml` 抄）。
