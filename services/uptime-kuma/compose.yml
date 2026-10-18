@@ -4,7 +4,7 @@ services:
     container_name: uptime-kuma
     restart: unless-stopped
     ports:
-      - "${BIND_ADDR}:3001:3001"
+      - "${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:3001:3001"
     volumes:
       - "${DATA_ROOT}/uptime-kuma:/app/data"
     environment:

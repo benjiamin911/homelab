@@ -5,7 +5,7 @@ services:
     container_name: CHANGE_ME
     restart: unless-stopped
     ports:
-      - "${BIND_ADDR}:8000:8000"          # host:container，host 侧绑 Tailscale IP
+      - "${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:8000:8000"          # host:container，host 侧绑 Tailscale IP
     volumes:
       - "${DATA_ROOT}/CHANGE_ME:/data"
     environment:
