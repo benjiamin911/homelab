@@ -49,6 +49,8 @@ services:
     environment:
       API_HOST: 0.0.0.0
       API_PORT: "3001"
+    ports:
+      - "127.0.0.1:3011:3001"                     # 只给主机网络里的 web 用，外部访问不到
     depends_on:
       setup:
         condition: service_completed_successfully
@@ -83,22 +85,21 @@ services:
         condition: service_completed_successfully
 
   # The web server answers tailnet clients only, by the site's own name (ADMIN_NO_LOGIN=tailscale): it reads the
-  # connection's source address, so no proxy in front. Seeing 172.x sources instead means Docker hid them:
-  # switch this service to network_mode: host (WEB_HOST=${BIND_ADDR}, WEB_PORT=3002, API_BASE_URL to a host port).
+  # connection's source address, so it runs on the host network and listens on the Tailscale IP itself. Published
+  # ports went through docker-proxy, which shows every client as the bridge's 172.x gateway (seen 2026-10-19).
   web:
     image: security-hot:local
     pull_policy: never
     restart: unless-stopped
+    network_mode: host
     command: [node, apps/web/server.ts]
     environment:
       NODE_ENV: production
-      API_BASE_URL: http://api:3001
+      API_BASE_URL: http://127.0.0.1:3011
       SITE_URL: http://jarvis:3002
       ADMIN_NO_LOGIN: tailscale
-      WEB_HOST: 0.0.0.0
-      WEB_PORT: "3000"
-    ports:
-      - "${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:3002:3000"
+      WEB_HOST: "${BIND_ADDR:?BIND_ADDR 未在 .env 设置}"
+      WEB_PORT: "3002"
     depends_on:
       api:
         condition: service_healthy

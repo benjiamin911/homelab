@@ -13,16 +13,19 @@ services:
     container_name: free-llm
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
-    ports:
-      - "${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:8090:8080"   # 8080 已被 mentor 占用（127.0.0.1），主机侧用 8090
+    # 主机网络：后台免密码要看连接的真实来源，发布端口时 docker-proxy 会把来源变成 172.x（2026-10-19 遇到）。
+    network_mode: host
     volumes:
       - "${DATA_ROOT}/free-llm:/data"           # gateway.sqlite3、master.key、config.yaml
     environment:
       - TZ=${TZ}
       - FREE_LLM_API_KEY=${FREE_LLM_API_KEY:?FREE_LLM_API_KEY 未在 .env 设置}
       - FREE_LLM_ADMIN_AUTH=tailscale
-# 如果后台提示“request from 172.x.x.x”（Docker 没保留 tailnet 来源地址），把 ports 换成：
-#     network_mode: host
-#   并在 environment 里加：
-#     - FREE_LLM_LISTEN_HOST=${BIND_ADDR}
-#     - FREE_LLM_LISTEN_PORT=8090
+      - FREE_LLM_LISTEN_HOST=${BIND_ADDR:?BIND_ADDR 未在 .env 设置}   # 只听 Tailscale IP
+      - FREE_LLM_LISTEN_PORT=8090                                      # 8080 已被 mentor 占用（127.0.0.1）
+    healthcheck:                                # 镜像自带的检查看 127.0.0.1:8080，主机网络下改看实际监听的地址
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://$${FREE_LLM_LISTEN_HOST}:$${FREE_LLM_LISTEN_PORT}/health', timeout=3)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
