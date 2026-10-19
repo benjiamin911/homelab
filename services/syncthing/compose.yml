@@ -1,4 +1,4 @@
-# Syncthing：jarvis 与个人设备之间双向同步两个 Obsidian vault（各一个共享文件夹），只走 tailnet。
+# Syncthing：jarvis 与个人设备之间双向同步 Obsidian 知识库 vault（Project 已并入其 Project/ 子文件夹），只走 tailnet。
 # 首次 up 之后在 jarvis 上跑一次 services/syncthing/configure.sh（幂等）完成文件夹 / 选项 / GUI 密码配置。
 # .env 需要：OBSIDIAN_ROOT（宿主机放 vault 的目录）、SYNCTHING_GUI_USER、SYNCTHING_GUI_PASSWORD。
 services:
@@ -13,14 +13,10 @@ services:
       - "${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:22000:22000/udp"                # 同步协议 QUIC
     volumes:
       - "${DATA_ROOT}/syncthing:/var/syncthing"                                           # 配置 + 索引数据库
-      # 两个 vault 用长语法并关闭自动建目录：路径不存在时 up 直接报错，而不是让 dockerd 以 root 建一个空目录
-      - type: bind                                    # jarvis 的知识库 vault
+      # vault 用长语法并关闭自动建目录：路径不存在时 up 直接报错，而不是让 dockerd 以 root 建一个空目录
+      - type: bind                                    # 知识库 vault（含并入的 Project/ 子文件夹）
         source: "${OBSIDIAN_ROOT:?OBSIDIAN_ROOT 未在 .env 设置}/Obsidian Vault"
         target: "/vaults/Obsidian Vault"
-        bind: { create_host_path: false }
-      - type: bind                                    # Mac 的项目 vault
-        source: "${OBSIDIAN_ROOT:?OBSIDIAN_ROOT 未在 .env 设置}/Project"
-        target: /vaults/Project
         bind: { create_host_path: false }
     environment:
       - TZ=${TZ}

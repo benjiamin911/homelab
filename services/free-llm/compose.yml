@@ -1,0 +1,28 @@
+# Free LLM：免费 LLM 网关（OpenRouter / Google AI Studio / Groq），只经 Tailscale 访问。
+# 放到 homelab 仓库的 services/free-llm/compose.yml，然后 ./deploy.sh up free-llm。
+# homelab 的 .env 需要：
+#   FREE_LLM_SRC      jarvis 上 Free LLM 代码目录（含 Dockerfile），例如 /home/stark/Projects/free-llm
+#   FREE_LLM_API_KEY  客户端调用 /v1 用的网关密钥，例如 `openssl rand -base64 32 | tr -d '/+='`
+# 后台 http://jarvis:8090/admin 免密码，只接受 tailnet 设备的直接访问；上游 Key 在后台粘贴，
+# 加密保存在 ${DATA_ROOT}/free-llm（gateway.sqlite3 + master.key，两者都要备份，缺一不可）。
+services:
+  free-llm:
+    build: "${FREE_LLM_SRC:?FREE_LLM_SRC 未在 .env 设置}"
+    image: free-llm:local
+    pull_policy: build                          # 每次 deploy.sh up 都按当前代码重建（有缓存，很快）
+    container_name: free-llm
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    ports:
+      - "${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:8090:8080"   # 8080 已被 mentor 占用（127.0.0.1），主机侧用 8090
+    volumes:
+      - "${DATA_ROOT}/free-llm:/data"           # gateway.sqlite3、master.key、config.yaml
+    environment:
+      - TZ=${TZ}
+      - FREE_LLM_API_KEY=${FREE_LLM_API_KEY:?FREE_LLM_API_KEY 未在 .env 设置}
+      - FREE_LLM_ADMIN_AUTH=tailscale
+# 如果后台提示“request from 172.x.x.x”（Docker 没保留 tailnet 来源地址），把 ports 换成：
+#     network_mode: host
+#   并在 environment 里加：
+#     - FREE_LLM_LISTEN_HOST=${BIND_ADDR}
+#     - FREE_LLM_LISTEN_PORT=8090

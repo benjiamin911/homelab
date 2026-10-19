@@ -1,0 +1,104 @@
+# 信息安全热点（Security Hot）：只经 Tailscale 访问 http://jarvis:3002 ，后台免密码（只认 tailnet 来源）。
+# 放在 homelab 仓库的 services/security-hot/compose.yml，然后 ./deploy.sh up security-hot。
+# homelab 的 .env 需要：
+#   SECURITY_HOT_SRC  jarvis 上的代码目录（私有仓库 benjiamin911/security-hot），例如 /home/stark/Projects/security-hot
+#   OBSIDIAN_ROOT     已有（Syncthing 用）；状态笔记写进 ${OBSIDIAN_ROOT}/Obsidian Vault/Project/Security Hot
+# 站点自己的配置与密钥在 ${DATA_ROOT}/security-hot/，不进仓库：
+#   app.env           站点环境变量（SITE_URL、数据库密码、会话密钥、开关等），权限 600
+#   credentials/      models.env（Free LLM 网关密钥），权限 600
+#   source-status.ts  每小时写 Obsidian 状态笔记的脚本
+#   postgres/、data/  数据库与站点文件；备份时连同 app.env、credentials/ 一起备份
+# 更新代码：git -C "$SECURITY_HOT_SRC" pull && ./deploy.sh up security-hot（会按新代码重建镜像）。
+
+x-backend: &backend
+  image: security-hot:local
+  pull_policy: never
+  restart: unless-stopped
+  env_file: "${DATA_ROOT}/security-hot/app.env"
+  volumes:
+    - "${DATA_ROOT}/security-hot/data:/data"
+    - "${DATA_ROOT}/security-hot/credentials:/run/credentials:ro"
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    env_file: "${DATA_ROOT}/security-hot/app.env"   # POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB
+    volumes:
+      - "${DATA_ROOT}/security-hot/postgres:/var/lib/postgresql/data"
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U securityhot -d security_hot]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # Migrations and missing seed sources (existing ones and admin edits are never overwritten).
+  setup:
+    <<: *backend
+    build: "${SECURITY_HOT_SRC:?SECURITY_HOT_SRC 未在 .env 设置}"
+    pull_policy: build                          # 每次 deploy.sh up 都按当前代码重建（有缓存，很快）
+    restart: "no"
+    command: [sh, -c, "node scripts/migrate.ts && node scripts/seed.ts"]
+
+  api:
+    <<: *backend
+    command: [node, apps/api/src/main.ts]
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: "3001"
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3001/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  worker:
+    <<: *backend
+    command: [node, apps/worker/src/main.ts]
+    stop_grace_period: 210s
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+  # Refreshes the Obsidian status note every hour; collecting is the worker's job.
+  status-note:
+    <<: *backend
+    command: [sh, -c, "while :; do node /app/local-live/source-status.ts > /dev/null; sleep 3600; done"]
+    environment:
+      REPORT_DIR: /reports
+    volumes:
+      - "${DATA_ROOT}/security-hot/data:/data"
+      - "${DATA_ROOT}/security-hot/credentials:/run/credentials:ro"
+      - "${DATA_ROOT}/security-hot/source-status.ts:/app/local-live/source-status.ts:ro"
+      - "${OBSIDIAN_ROOT:?OBSIDIAN_ROOT 未在 .env 设置}/Obsidian Vault/Project/Security Hot:/reports"
+    stop_grace_period: 10s
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+  # The web server answers tailnet clients only, by the site's own name (ADMIN_NO_LOGIN=tailscale): it reads the
+  # connection's source address, so no proxy in front. Seeing 172.x sources instead means Docker hid them:
+  # switch this service to network_mode: host (WEB_HOST=${BIND_ADDR}, WEB_PORT=3002, API_BASE_URL to a host port).
+  web:
+    image: security-hot:local
+    pull_policy: never
+    restart: unless-stopped
+    command: [node, apps/web/server.ts]
+    environment:
+      NODE_ENV: production
+      API_BASE_URL: http://api:3001
+      SITE_URL: http://jarvis:3002
+      ADMIN_NO_LOGIN: tailscale
+      WEB_HOST: 0.0.0.0
+      WEB_PORT: "3000"
+    ports:
+      - "${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:3002:3000"
+    depends_on:
+      api:
+        condition: service_healthy

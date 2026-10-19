@@ -64,7 +64,6 @@ ensure_folder(){ # id label path
   fi
 }
 ensure_folder obsidian-vault 'Obsidian Vault' '/vaults/Obsidian Vault'
-ensure_folder project        'Project'        '/vaults/Project'
 
 # 4) 忽略规则（POST；.stignore 本身不会被同步，Mac 端要填一样的）
 IGNORES='{"ignore":[
@@ -78,7 +77,7 @@ IGNORES='{"ignore":[
   "// Claude Code 本机设置",
   ".claude/settings.local.json"
 ]}'
-for f in obsidian-vault project; do st -X POST "$API/rest/db/ignores?folder=$f" -d "$IGNORES" >/dev/null; done
+for f in obsidian-vault; do st -X POST "$API/rest/db/ignores?folder=$f" -d "$IGNORES" >/dev/null; done
 
 # 5) 需要重启就重启（上面的改动一般都热生效）
 if st "$API/rest/config/restart-required" | py 'import json,sys; sys.exit(0 if json.load(sys.stdin).get("requiresRestart") else 1)'; then

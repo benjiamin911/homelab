@@ -14,8 +14,10 @@ Docker Compose 服务集，部署在 jarvis，只经 Tailscale 访问。
 ## 已有服务
 
 - `uptime-kuma`：监控，`http://jarvis:3001`。
-- `syncthing`：Mac ↔ jarvis 双向同步两个 Obsidian vault，GUI `http://jarvis:8384`。首次 `up` 后在 jarvis 上跑一次
+- `syncthing`：Mac ↔ jarvis 双向同步 Obsidian 知识库 vault（Project 已并入其子文件夹），GUI `http://jarvis:8384`。首次 `up` 后在 jarvis 上跑一次
   `./services/syncthing/configure.sh`（幂等）配置文件夹 / 版本控制 / 只走 tailnet / GUI 密码；参数见 `.env.example`。
+- `free-llm`：免费 LLM 网关（OpenAI 兼容，`/v1` 与后台 `/admin`），`http://jarvis:8090`。代码在私有仓库，jarvis 本地构建镜像；说明见 compose 文件开头。
+- `security-hot`：信息安全热点网站，`http://jarvis:3002`，后台只认 tailnet 来源。代码在私有仓库，jarvis 本地构建镜像；站点配置与密钥放在 `${DATA_ROOT}/security-hot/`，说明见 compose 文件开头。
 
 ## 加一个新服务
 
