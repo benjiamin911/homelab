@@ -1,0 +1,84 @@
+# 按名字访问 jarvis 上的服务：http://<名字>.{$PROXY_ZONE}；首页 http://{$PROXY_ZONE} 列出全部。
+# 名字由 services/dns 解析，只在 tailnet 内可用。原来的 http://jarvis:<端口> 照常可用，服务之间也仍按端口互相调用。
+# 加一个服务：照下面抄一段 `import proxy <后端地址>`，再在 site/index.html 的列表里加一行；push 后自动重载。
+{
+	auto_https off
+	admin off
+	persist_config off
+	default_bind {$BIND_ADDR}
+	grace_period 10s
+}
+
+# 只接受 tailnet 来源：发往 Tailscale IP 的包从局域网网卡进来，Linux 也会收，所以 Caddy 自己再挡一层
+(outside) {
+	@outside not remote_ip 100.64.0.0/10
+}
+
+# 反向代理。keepalive 要短于后端的空闲超时（Node、uvicorn 默认 5 秒），否则偶尔 502
+(proxy) {
+	import outside
+	abort @outside
+	reverse_proxy {args[0]} {
+		transport http {
+			keepalive 4s
+		}
+	}
+}
+
+# 跳转到原地址（给只认直连的服务用）
+(jump) {
+	import outside
+	route {
+		abort @outside
+		redir {args[0]}{uri}
+	}
+}
+
+http://{$PROXY_ZONE} {
+	import outside
+	abort @outside
+	root * /etc/caddy/site
+	templates
+	file_server
+}
+
+http://kuma.{$PROXY_ZONE} {
+	import proxy {$BIND_ADDR}:3001
+}
+
+http://sync.{$PROXY_ZONE} {
+	import proxy {$BIND_ADDR}:8384
+}
+
+http://maestro.{$PROXY_ZONE} {
+	import proxy 127.0.0.1:4317
+}
+
+# Free LLM：/v1 等接口走代理；免密码后台只认直连、不能经过代理，所以首页和 /admin 跳到原地址
+http://llm.{$PROXY_ZONE} {
+	import outside
+	route {
+		abort @outside
+		redir / http://jarvis:8090/admin
+		redir /admin* http://jarvis:8090{uri}
+		reverse_proxy {$BIND_ADDR}:8090 {
+			transport http {
+				keepalive 4s
+			}
+		}
+	}
+}
+
+# 信息安全热点：整站只认直连（免密码后台），跳到原地址
+http://hot.{$PROXY_ZONE} {
+	import jump http://jarvis:3002
+}
+
+# 其他名字（打错的、直接用 IP 或 jarvis 访问 80 端口）：回首页
+http:// {
+	import outside
+	route {
+		abort @outside
+		redir http://{$PROXY_ZONE}/
+	}
+}

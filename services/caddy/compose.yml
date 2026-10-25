@@ -1,0 +1,20 @@
+# 反向代理：http://<名字>.${PROXY_ZONE} → jarvis 上对应服务的端口，首页 http://${PROXY_ZONE} 列出全部（路由见 Caddyfile）。
+# 只监听 Tailscale IP 的 80 端口；名字由 services/dns 解析。改 Caddyfile 后 push 即可，Caddy 每秒检查一次、自动重载。
+services:
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: unless-stopped
+    # 主机网络：后端有的只听 127.0.0.1、有的只听 Tailscale IP；Caddy 也能看到客户端的真实 tailnet 地址
+    network_mode: host
+    user: "${PUID:-1000}:${PGID:-1000}"
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]       # 镜像里的 caddy 自带这项文件 capability，非 root 也能绑 80
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile", "--watch"]
+    volumes:
+      - "./:/etc/caddy:ro"            # 挂目录而不是单个文件：git 更新文件会换 inode，单文件挂载看不到新内容
+      - "${DATA_ROOT}/caddy:/data"
+    environment:
+      - BIND_ADDR=${BIND_ADDR:?BIND_ADDR 未在 .env 设置}
+      - PROXY_ZONE=${PROXY_ZONE:?PROXY_ZONE 未在 .env 设置}
+      - XDG_CONFIG_HOME=/data/config

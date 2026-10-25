@@ -1,0 +1,48 @@
+{{- $zone := env "PROXY_ZONE" -}}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jarvis 服务</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1d1d1f; --muted: #6e6e73; --bg: #ffffff; --card: #f2f2f5; --accent: #0a66c2; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #f5f5f7; --muted: #a1a1a6; --bg: #111113; --card: #1d1d20; --accent: #5aa9ff; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 32px 20px 48px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  a { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 14px 16px; border-radius: 12px; background: var(--card); color: inherit; text-decoration: none; }
+  a:hover, a:focus-visible { outline: 2px solid var(--accent); }
+  .name { font-weight: 600; }
+  .host { grid-column: 2; grid-row: 1; color: var(--accent); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
+  .desc, .port { color: var(--muted); font-size: 14px; }
+  .port { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+</head>
+<body>
+<main>
+<h1>jarvis 服务</h1>
+<p class="sub">只在 tailnet 内可用。地址都是 <code>http://名字.{{ $zone }}</code>；原来的 <code>http://jarvis:端口</code> 也照常能用。</p>
+<ul>
+{{- /* 每行：名字、显示名、说明、原端口。加服务时在这里加一行，并在 Caddyfile 里加对应的一段。 */}}
+{{- range list
+  (list "kuma" "Uptime Kuma" "服务监控" "3001")
+  (list "sync" "Syncthing" "Obsidian 同步" "8384")
+  (list "llm" "Free LLM" "免费 LLM 网关：/v1 接口走这个名字，后台会跳到 jarvis:8090" "8090")
+  (list "hot" "信息安全热点" "网站与后台：会跳到 jarvis:3002" "3002")
+  (list "maestro" "Maestro" "编排器面板" "4317")
+}}
+  <li><a href="http://{{ index . 0 }}.{{ $zone }}/">
+    <span class="name">{{ index . 1 }}</span>
+    <span class="host">{{ index . 0 }}.{{ $zone }}</span>
+    <span class="desc">{{ index . 2 }}</span>
+    <span class="port">:{{ index . 3 }}</span>
+  </a></li>
+{{- end }}
+</ul>
+</main>
+</body>
+</html>

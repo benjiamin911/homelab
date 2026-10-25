@@ -1,4 +1,5 @@
 # 复制这个目录为 services/<你的服务名>/ 并改下面内容。
+# 要按名字访问（http://<名字>.home.arpa）：在 services/caddy/Caddyfile 加一段，并在 services/caddy/site/index.html 的列表里加一行。
 services:
   app:
     image: example/app:latest

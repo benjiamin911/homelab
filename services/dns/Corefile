@@ -1,0 +1,20 @@
+# {$PROXY_ZONE} 和它下面的任意名字都解析到 jarvis 的 Tailscale IP，由 Caddy 按名字分流。
+# 其他域名不在这里，CoreDNS 直接回 REFUSED，不当公共解析器。
+{$PROXY_ZONE} {
+	bind {$BIND_ADDR}
+	# 只回答 tailnet 来源（发往 Tailscale IP 的包从局域网网卡进来，Linux 也会收）
+	acl {
+		allow net 100.64.0.0/10
+		block
+	}
+	template IN A {
+		answer "{{ .Name }} 60 IN A {$BIND_ADDR}"
+	}
+	# AAAA 等其他类型回「没有这条记录」，客户端改用 IPv4
+	template ANY ANY {
+		rcode NOERROR
+		authority "{{ .Zone }} 60 IN SOA ns.{{ .Zone }} hostmaster.{{ .Zone }} 1 3600 600 86400 60"
+	}
+	errors
+	reload
+}

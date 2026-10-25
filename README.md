@@ -13,18 +13,33 @@ Docker Compose 服务集，部署在 jarvis，只经 Tailscale 访问。
 
 ## 已有服务
 
-- `uptime-kuma`：监控，`http://jarvis:3001`。
-- `syncthing`：Mac ↔ jarvis 双向同步 Obsidian 知识库 vault（Project 已并入其子文件夹），GUI `http://jarvis:8384`。首次 `up` 后在 jarvis 上跑一次
+网页服务都能按名字打开：`http://<名字>.home.arpa`，首页 `http://home.arpa` 列出全部（见下一节）；原来的 `http://jarvis:<端口>` 照常可用。
+
+- `uptime-kuma`：监控，`http://kuma.home.arpa`（端口 3001）。
+- `syncthing`：Mac ↔ jarvis 双向同步 Obsidian 知识库 vault（Project 已并入其子文件夹），GUI `http://sync.home.arpa`（端口 8384）。首次 `up` 后在 jarvis 上跑一次
   `./services/syncthing/configure.sh`（幂等）配置文件夹 / 版本控制 / 只走 tailnet / GUI 密码；参数见 `.env.example`。
-- `free-llm`：免费 LLM 网关（OpenAI 兼容，`/v1` 与后台 `/admin`），`http://jarvis:8090`。代码在私有仓库，jarvis 本地构建镜像；说明见 compose 文件开头。
-- `security-hot`：信息安全热点网站，`http://jarvis:3002`，后台只认 tailnet 来源。代码在私有仓库，jarvis 本地构建镜像；站点配置与密钥放在 `${DATA_ROOT}/security-hot/`，说明见 compose 文件开头。
+- `free-llm`：免费 LLM 网关（OpenAI 兼容，`/v1` 与后台 `/admin`），`http://llm.home.arpa`（端口 8090）。代码在私有仓库，jarvis 本地构建镜像；说明见 compose 文件开头。
+- `security-hot`：信息安全热点网站，`http://hot.home.arpa`（端口 3002），后台只认 tailnet 来源。代码在私有仓库，jarvis 本地构建镜像；站点配置与密钥放在 `${DATA_ROOT}/security-hot/`，说明见 compose 文件开头。
+- `caddy`：按名字分流的反向代理，只听 Tailscale IP 的 80 端口。路由在 `services/caddy/Caddyfile`，首页在 `services/caddy/site/index.html`。
+- `dns`：CoreDNS，只听 Tailscale IP 的 53 端口，把 `home.arpa` 和它下面的任意名字都解析到 jarvis。
+
+不在 Docker 里的 Maestro（systemd，端口 4317）也有名字：`http://maestro.home.arpa`。
+
+## 按名字访问
+
+- 解析：Tailscale 后台的 split DNS 把 `home.arpa` 交给 jarvis 的 Tailscale IP，tailnet 里每台设备（含手机）都会来问 `dns`，它把任意 `*.home.arpa` 都答成 jarvis。后缀来自 `.env` 的 `PROXY_ZONE`。
+- 分流：`caddy` 按名字转到对应端口。只用 http，流量走 Tailscale，本身是加密的。Caddy 和 `dns` 都只接受 tailnet 来源（`100.64.0.0/10`）。
+- 例外：free-llm 的免密码后台和信息安全热点整站都只认直连、不能经过代理。所以 `llm.home.arpa` 的首页和 `/admin` 会跳到 `http://jarvis:8090/admin`，`hot.home.arpa` 会跳到 `http://jarvis:3002`。free-llm 的 `/v1` 照常走名字。
+- 服务之间仍按端口互相调用（比如 security-hot 调 `http://<Tailscale IP>:8090`），不经过 Caddy。
+- 改 `Caddyfile` / `Corefile` 后 push 即可，Caddy 每秒检查一次，CoreDNS 30 秒内自动重载，不用重启容器。
+- 一次性设置（换后缀时重做）：Tailscale 后台 → DNS → Nameservers → Add nameserver → Custom，填 jarvis 的 Tailscale IP，打开「Restrict to domain」，填 `home.arpa`。
 
 ## 加一个新服务
 
 1. 建目录 `services/<名字>/compose.yml`（照着 `services/_template/compose.yml` 抄）。
 2. 端口写成 `"${BIND_ADDR}:<host端口>:<容器端口>"`，数据卷用 `"${DATA_ROOT}/<名字>:..."`。
-3. `./deploy.sh up <名字>`。
-4. 浏览器 `http://jarvis:<host端口>`（在 tailnet 内）。
+3. 起名字：在 `services/caddy/Caddyfile` 加一段 `http://<名字>.{$PROXY_ZONE} { import proxy {$BIND_ADDR}:<host端口> }`，并在 `services/caddy/site/index.html` 的列表里加一行。
+4. push（或在 jarvis 上 `./deploy.sh up <名字>`），然后浏览器开 `http://<名字>.home.arpa`（在 tailnet 内）。
 
 ## 约定
 

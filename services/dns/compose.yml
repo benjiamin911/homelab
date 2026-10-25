@@ -1,0 +1,17 @@
+# 服务名解析：*.${PROXY_ZONE} 全部指向 jarvis 的 Tailscale IP（Caddy 在那里按名字分流，见 services/caddy）。
+# 只监听 Tailscale IP 的 53 端口。Tailscale 后台 DNS 里把 ${PROXY_ZONE} 的 split DNS 指向这个 IP 后，tailnet 里每台设备都能解析。
+# 改 Corefile 后 push 即可，reload 插件 30 秒内自动生效。
+services:
+  dns:
+    image: coredns/coredns:1.14.7
+    container_name: dns
+    restart: unless-stopped
+    network_mode: host                # 直接监听 Tailscale IP；开机时它还没就绪会退出，restart 策略会重试到成功
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    command: ["-conf", "/etc/coredns/Corefile"]
+    volumes:
+      - "./:/etc/coredns:ro"          # 挂目录而不是单个文件：git 更新文件会换 inode，单文件挂载看不到新内容
+    environment:
+      - BIND_ADDR=${BIND_ADDR:?BIND_ADDR 未在 .env 设置}
+      - PROXY_ZONE=${PROXY_ZONE:?PROXY_ZONE 未在 .env 设置}
