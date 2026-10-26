@@ -74,6 +74,11 @@ http://news.{$PROXY_ZONE} {
 	import jump http://jarvis:3002
 }
 
+# Notification：统一通知 API，接口文档 /docs
+http://notify.{$PROXY_ZONE} {
+	import proxy {$BIND_ADDR}:8787
+}
+
 # 其他名字（打错的、直接用 IP 或 MagicDNS 全名访问 80 端口）：回首页
 http:// {
 	import outside

@@ -20,6 +20,7 @@ Docker Compose 服务集，部署在 jarvis，只经 Tailscale 访问。
   `./services/syncthing/configure.sh`（幂等）配置文件夹 / 版本控制 / 只走 tailnet / GUI 密码；参数见 `.env.example`。
 - `free-llm`：免费 LLM 网关（OpenAI 兼容，`/v1` 与后台 `/admin`），`http://llm.jarvis`（端口 8090）。代码在私有仓库，jarvis 本地构建镜像；说明见 compose 文件开头。
 - `security-hot`：信息安全热点网站，`http://news.jarvis`（端口 3002），后台只认 tailnet 来源。代码在私有仓库，jarvis 本地构建镜像；站点配置与密钥放在 `${DATA_ROOT}/security-hot/`，说明见 compose 文件开头。
+- `notification`：统一通知 API（Lark 群自定义机器人与自建应用机器人），`http://notify.jarvis`（端口 8787），接口文档 `/docs`。代码在私有仓库，jarvis 本地构建镜像；`ADMIN_TOKEN` 等密钥与两个 SQLite 数据库在 `${DATA_ROOT}/notification/`，push 前要先在 jarvis 上准备好，说明见 compose 文件开头。
 - `caddy`：按名字分流的反向代理，只听 Tailscale IP 的 80 端口。路由在 `services/caddy/Caddyfile`，首页在 `services/caddy/site/index.html`。
 - `dns`：CoreDNS，只听 Tailscale IP 的 53 端口，把 `jarvis` 和它下面的任意名字都解析到 jarvis。
 

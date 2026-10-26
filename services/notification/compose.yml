@@ -1,0 +1,42 @@
+# Notification：统一通知 API（Lark 群自定义机器人 + 自建应用机器人）。tailnet 里用 http://notify.jarvis 或
+# http://jarvis:8787，接口文档在 /docs；jarvis 上的其他服务（包括 bridge 网络的容器）按端口调用 http://<Tailscale IP>:8787。
+# 先在 jarvis 上准备好下面三样再 push（缺 NOTIFICATION_SRC 时 deploy.sh up 会在这一步报错，排在后面的服务也不会更新）：
+#   1. 代码：私有仓库 benjiamin911/notification，用只读 deploy key clone 到 NOTIFICATION_SRC
+#   2. homelab 的 .env：NOTIFICATION_SRC=/home/stark/Projects/notification
+#   3. 密钥：${DATA_ROOT}/notification/app.env（目录 700，文件 600），ADMIN_TOKEN（必填，`openssl rand -hex 32`）；
+#      可选 LARK_APP_ID + LARK_APP_SECRET（两个都填才启用应用机器人）。缺 ADMIN_TOKEN 时容器起不来、反复重启，不影响别的服务
+# 数据也在 ${DATA_ROOT}/notification/，不进仓库：notification.sqlite（调用方、通道含 webhook 地址与签名密钥、消息记录）、
+#   queue.sqlite（投递队列）。在线备份，不用停服务：docker exec notification node dist-node/backup.mjs
+#   （写到 ${DATA_ROOT}/notification/backups/<时间>/，权限 600）；备份含密钥，不要放进 homelab 仓库或同步的 vault。
+# 更新代码：git -C "$NOTIFICATION_SRC" pull && ./deploy.sh up notification（会按新代码重建镜像）。
+services:
+  notification:
+    build: "${NOTIFICATION_SRC:?NOTIFICATION_SRC 未在 .env 设置}"
+    image: notification:local
+    pull_policy: build                          # 每次 deploy.sh up 都按当前代码重建（有缓存，很快）
+    container_name: notification
+    restart: unless-stopped
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
+    # 主机网络、直接监听 Tailscale IP：jarvis 重启时若 Docker 先于 tailscale0 起来，监听失败的进程退出、按重启策略重试，
+    # Tailscale IP 就绪后自然恢复；发布端口（docker-proxy）遇到同样情况整个容器起不来、也不重试（2026-10-25 重启后的
+    # uptime-kuma、syncthing）。代价是容器和宿主机共用网络，能连到只听 127.0.0.1 的服务；homelab TODO 里的
+    # net.ipv4.ip_nonlocal_bind=1 落地后可以改回 bridge 网络加发布端口。
+    network_mode: host
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    env_file:
+      - path: "${DATA_ROOT}/notification/app.env"
+        required: false                         # 缺文件时只是这个容器起不来，不让整个 deploy.sh up 失败
+    environment:
+      - TZ=${TZ}
+      - HOST=${BIND_ADDR:?BIND_ADDR 未在 .env 设置}   # 只听 Tailscale IP；镜像自带的健康检查也看这个地址
+      - PORT=8787
+      # 发往 Tailscale IP 的包从局域网网卡进来 Linux 也收（ufw 未启用），所以服务自己再挡一层：只接受 tailnet、
+      # 本机和 Docker bridge 网络（172.16.0.0/12）的连接，其他来源直接断开
+      - ALLOWED_CLIENT_NETWORKS=100.64.0.0/10,127.0.0.0/8,172.16.0.0/12
+    volumes:
+      - "${DATA_ROOT}/notification:/data"
+    stop_grace_period: 130s                     # 进程自己最多用 120 秒收尾：进行中的请求、队列批次、后台任务
