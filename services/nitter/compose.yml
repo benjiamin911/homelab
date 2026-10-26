@@ -17,8 +17,9 @@ services:
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
-    ports:
-      - "${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:8085:8080"   # 8080 已被 mentor 占用（127.0.0.1），主机侧用 8085
+    # 主机网络、直接监听 Tailscale IP（端口见 NITTER_CONF），原因同 notification：jarvis 重启时 Tailscale IP 晚到，
+    # 发布端口的容器会整个起不来、一直停着；主机网络下 nitter 监听失败会退出，restart 策略重试到 IP 就绪为止
+    network_mode: host
     volumes:
       - "${DATA_ROOT}/nitter:/config"           # 挂目录而不是单个文件：deploy.sh 保证目录存在，文件还没有也不会让 up 失败
     tmpfs: [/tmp]                               # 启动时把配置和 session 拼到这里，只在内存
@@ -29,11 +30,14 @@ services:
       # 段名、键名区分大小写；布尔值、数字写错 nitter 会起不来（容器一直重启）。
       NITTER_CONF: |
         [Server]
+        address = "${BIND_ADDR:?BIND_ADDR 未在 .env 设置}"   # 只听 Tailscale IP
+        port = 8085                  # 8080 已被 mentor 占用（127.0.0.1）
         hostname = "nitter.jarvis"   # 生成链接（RSS、嵌入、搜索插件）用的地址
         https = false                # 只有 http（流量走 Tailscale，本身加密）；true 会给 cookie 加 Secure，设置就存不住
 
         [Cache]
-        redisHost = "nitter-redis"
+        redisHost = "127.0.0.1"
+        redisPort = 6385             # nitter-redis 只听本机这个端口
 
         [Config]
         hmacKey = "@HMAC_KEY@"       # 启动时换成 /config/hmac.key 的内容
@@ -56,7 +60,7 @@ services:
         condition: service_started              # 只管先后：Redis 没就绪时 nitter 自己退出，restart 策略会重试
         restart: true                           # compose 重建 Redis 时连带重启 nitter：它不会自己重连，走 Redis 的页面会卡住
     healthcheck:                                # 只查本机、不打 X：一个可用 session 都没有时变 unhealthy
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/.health | grep -q '\"total\":[1-9]'"]
+      test: ["CMD-SHELL", "wget -qO- http://${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:8085/.health | grep -q '\"total\":[1-9]'"]
       interval: 30s
       timeout: 5s
       retries: 2
@@ -65,15 +69,16 @@ services:
     image: valkey/valkey:9-alpine               # 上游推荐 Valkey；只给 nitter 用：nitter 在空库上启动时会删掉所有带冒号的 key
     container_name: nitter-redis
     restart: unless-stopped
+    network_mode: host                          # nitter 用主机网络，Redis 也放主机网络、只听本机 127.0.0.1:6385
     user: "${PUID:-1000}:${PGID:-1000}"
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
-    # 纯缓存：不落盘，满了按 LRU 淘汰；不发布端口，只有 nitter 能连
-    command: ["valkey-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--loglevel", "warning"]
+    # 纯缓存：不落盘，满了按 LRU 淘汰
+    command: ["valkey-server", "--bind", "127.0.0.1", "--port", "6385", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--loglevel", "warning"]
     tmpfs: [/data]                              # 只读根目录下给它一个可写的工作目录
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD", "valkey-cli", "-p", "6385", "ping"]
       interval: 30s
       timeout: 5s
       retries: 2
