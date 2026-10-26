@@ -6,7 +6,7 @@
 #   3. 密钥：${DATA_ROOT}/notification/app.env（目录 700，文件 600），ADMIN_TOKEN（必填，`openssl rand -hex 32`）；
 #      可选 LARK_APP_ID + LARK_APP_SECRET（两个都填才启用应用机器人）。缺 ADMIN_TOKEN 时容器起不来、反复重启，不影响别的服务
 # 数据也在 ${DATA_ROOT}/notification/，不进仓库：notification.sqlite（调用方、通道含 webhook 地址与签名密钥、消息记录）、
-#   queue.sqlite（投递队列）。在线备份，不用停服务：docker exec notification node dist-node/backup.mjs
+#   queue.sqlite（投递队列）。在线备份，不用停服务：docker exec notification node dist/backup.mjs
 #   （写到 ${DATA_ROOT}/notification/backups/<时间>/，权限 600）；备份含密钥，不要放进 homelab 仓库或同步的 vault。
 # 更新代码：git -C "$NOTIFICATION_SRC" pull && ./deploy.sh up notification（会按新代码重建镜像）。
 services:
