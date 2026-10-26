@@ -70,11 +70,11 @@ http://llm.{$PROXY_ZONE} {
 }
 
 # 信息安全热点：整站只认直连（免密码后台），跳到原地址
-http://hot.{$PROXY_ZONE} {
+http://news.{$PROXY_ZONE} {
 	import jump http://jarvis:3002
 }
 
-# 其他名字（打错的、直接用 IP 或 jarvis 访问 80 端口）：回首页
+# 其他名字（打错的、直接用 IP 或 MagicDNS 全名访问 80 端口）：回首页
 http:// {
 	import outside
 	route {
