@@ -1,0 +1,24 @@
+services:
+  paper:
+    build: "${PAPER_SRC:?PAPER_SRC 未在 .env 设置}"
+    image: paper:local
+    pull_policy: build
+    container_name: paper
+    restart: unless-stopped
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
+    ports:
+      - "127.0.0.1:3081:3080"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      TZ: "${TZ:-America/Los_Angeles}"
+      HOSTNAME: "0.0.0.0"
+      PORT: "3080"
+      FREE_LLM_BASE_URL: "http://${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:8090/v1"
+      FREE_LLM_API_KEY: "${FREE_LLM_API_KEY:?FREE_LLM_API_KEY 未在 .env 设置}"
+      FREE_LLM_MODEL: "auto"
+      ALLOWED_ORIGINS: "http://paper.${PROXY_ZONE:?PROXY_ZONE 未在 .env 设置},http://jarvis:3080,http://${BIND_ADDR}:3080"
+    stop_grace_period: 200s
