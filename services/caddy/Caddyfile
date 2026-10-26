@@ -79,6 +79,11 @@ http://notify.{$PROXY_ZONE} {
 	import proxy {$BIND_ADDR}:8787
 }
 
+# Nitter：X（Twitter）只读前端
+http://nitter.{$PROXY_ZONE} {
+	import proxy {$BIND_ADDR}:8085
+}
+
 # 其他名字（打错的、直接用 IP 或 MagicDNS 全名访问 80 端口）：回首页
 http:// {
 	import outside

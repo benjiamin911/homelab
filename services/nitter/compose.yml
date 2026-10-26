@@ -1,0 +1,79 @@
+# Nitter：X（Twitter）的只读前端（上游 zedeus/nitter），只经 Tailscale 访问 http://nitter.jarvis（端口 8085）。
+# 放在 homelab 仓库的 services/nitter/compose.yml，然后 ./deploy.sh up nitter。.env 不需要新变量。
+# 配置就是下面的 NITTER_CONF（进 git、不含机密）：改了 push 即生效——环境变量变了，compose 会重建容器。
+# 机密不进仓库（仓库是 public），都在 ${DATA_ROOT}/nitter/，权限 600：
+#   hmac.key        媒体链接的签名密钥，首次启动自动生成
+#   sessions.jsonl  X 账号的 session（auth_token / ct0），在 jarvis 上跑 ./services/nitter/add-session.sh 添加；
+#                   还没有时 nitter 照常启动，但看 X 内容的页面都报 429，容器显示 unhealthy
+# nitter 只在启动时读 session，手动改了 sessions.jsonl 要 ./deploy.sh restart nitter。缓存在 nitter-redis 内存里，不落盘。
+services:
+  nitter:
+    # 上游最后一次代码提交（2026-08-24，之后只改过 README）；tag 和 digest 一起写，镜像内容固定不变
+    image: zedeus/nitter:8142bab1a920d13589ab5e689d7623ac0ac7ec34@sha256:8ca440fa51d8ce4618d51a6341dabbce784407025e2531343c36e540e0e3c4ba
+    container_name: nitter
+    restart: unless-stopped
+    init: true                                  # nitter 不处理 SIGTERM；没有 init，每次停容器都要等 10 秒超时被强杀
+    user: "${PUID:-1000}:${PGID:-1000}"         # 读写 ${DATA_ROOT}/nitter 里属主 stark、权限 600 的文件
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:8085:8080"   # 8080 已被 mentor 占用（127.0.0.1），主机侧用 8085
+    volumes:
+      - "${DATA_ROOT}/nitter:/config"           # 挂目录而不是单个文件：deploy.sh 保证目录存在，文件还没有也不会让 up 失败
+    tmpfs: [/tmp]                               # 启动时把配置和 session 拼到这里，只在内存
+    environment:
+      NITTER_CONF_FILE: /tmp/nitter.conf
+      NITTER_SESSIONS_FILE: /tmp/sessions.jsonl
+      # 只写和默认值不同的项；完整列表见上游 nitter.example.conf、src/config.nim、src/prefs_impl.nim。
+      # 段名、键名区分大小写；布尔值、数字写错 nitter 会起不来（容器一直重启）。
+      NITTER_CONF: |
+        [Server]
+        hostname = "nitter.jarvis"   # 生成链接（RSS、嵌入、搜索插件）用的地址
+        https = false                # 只有 http（流量走 Tailscale，本身加密）；true 会给 cookie 加 Secure，设置就存不住
+
+        [Cache]
+        redisHost = "nitter-redis"
+
+        [Config]
+        hmacKey = "@HMAC_KEY@"       # 启动时换成 /config/hmac.key 的内容
+
+        [Preferences]
+        # 所有浏览器的默认偏好，每个浏览器还能在 /settings 里各自改。
+        # replaceTwitter 别填 nitter.jarvis：nitter 生成的替换链接一律是 https://，而这里只有 http。
+    entrypoint: ["/bin/sh", "-euc"]
+    command:
+      - |
+        umask 077
+        # hmacKey 第一次启动时随机生成，之后一直用它（换了会让之前生成的视频链接失效）
+        [ -s /config/hmac.key ] || openssl rand -hex 32 > /config/hmac.key
+        printf '%s\n' "$$NITTER_CONF" | sed "s/@HMAC_KEY@/$$(cat /config/hmac.key)/" > /tmp/nitter.conf
+        # session：去掉空行（nitter 读到空行会直接退出）；文件还没有就以 0 个 session 启动；文件读不了（属主不对）就报错退出
+        if [ -e /config/sessions.jsonl ]; then grep -v '^[[:space:]]*$$' /config/sessions.jsonl > /tmp/sessions.jsonl || [ $$? -eq 1 ]; else : > /tmp/sessions.jsonl; fi
+        exec ./nitter
+    depends_on:
+      nitter-redis:
+        condition: service_started              # 只管先后：Redis 没就绪时 nitter 自己退出，restart 策略会重试
+        restart: true                           # compose 重建 Redis 时连带重启 nitter：它不会自己重连，走 Redis 的页面会卡住
+    healthcheck:                                # 只查本机、不打 X：一个可用 session 都没有时变 unhealthy
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/.health | grep -q '\"total\":[1-9]'"]
+      interval: 30s
+      timeout: 5s
+      retries: 2
+
+  nitter-redis:
+    image: valkey/valkey:9-alpine               # 上游推荐 Valkey；只给 nitter 用：nitter 在空库上启动时会删掉所有带冒号的 key
+    container_name: nitter-redis
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    # 纯缓存：不落盘，满了按 LRU 淘汰；不发布端口，只有 nitter 能连
+    command: ["valkey-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--loglevel", "warning"]
+    tmpfs: [/data]                              # 只读根目录下给它一个可写的工作目录
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 2
