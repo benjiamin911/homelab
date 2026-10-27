@@ -19,7 +19,7 @@ Docker Compose 服务集，部署在 jarvis，只经 Tailscale 访问。
 - `syncthing`：Mac ↔ jarvis 双向同步 Obsidian 知识库 vault（Project 已并入其子文件夹），GUI `http://sync.jarvis`（端口 8384）。首次 `up` 后在 jarvis 上跑一次
   `./services/syncthing/configure.sh`（幂等）配置文件夹 / 版本控制 / 只走 tailnet / GUI 密码；参数见 `.env.example`。
 - `free-llm`：免费 LLM 网关（OpenAI 兼容，`/v1` 与后台 `/admin`），`http://llm.jarvis`（端口 8090）。代码在私有仓库，jarvis 本地构建镜像；说明见 compose 文件开头。
-- `paper`：PDF 原文阅读与逐句精读，`http://paper.jarvis` 或 `http://jarvis:3080`。私有源码仓库为 `benjiamin911/paper`；先用只读 deploy key 克隆到 `PAPER_SRC`，并在本机 `.env` 设置该路径，再推送 homelab 配置。复用 `FREE_LLM_API_KEY`，不在本仓库存放密钥或 PDF。容器只发布 `127.0.0.1:3081`，两个对外入口均由 Caddy 执行 tailnet 来源校验。应用代码更新后执行 `git -C "$PAPER_SRC" pull --ff-only && ./deploy.sh up paper`。
+- `paper`：上传 PDF 后后台自动逐句解读，关闭浏览器后继续，`http://paper.jarvis` 或 `http://jarvis:3080`。私有源码仓库为 `benjiamin911/paper`；先用只读 deploy key 克隆到 `PAPER_SRC`，并在本机 `.env` 设置该路径，再推送 homelab 配置。复用 `FREE_LLM_API_KEY`，不在本仓库存放密钥或 PDF。`${DATA_ROOT}/paper` 挂载为 `/data`，保存原始 PDF、SQLite 任务与逐句结果；部署前创建为 `${PUID}:${PGID}` 所有、`0700` 权限，不要删除已有数据。备份时停止容器后备份整个目录。全文会自动发送给网关及上游，禁止上传敏感内容。容器只发布 `127.0.0.1:3081`，两个对外入口均由 Caddy 执行 tailnet 来源校验。应用代码更新后执行 `git -C "$PAPER_SRC" pull --ff-only && ./deploy.sh up paper`。
 - `security-hot`：信息安全热点网站，`http://news.jarvis`（端口 3002），后台只认 tailnet 来源。代码在私有仓库，jarvis 本地构建镜像；站点配置与密钥放在 `${DATA_ROOT}/security-hot/`，说明见 compose 文件开头。
 - `notification`：统一通知 API（Lark 群自定义机器人与自建应用机器人），`http://notify.jarvis`（端口 8787），接口文档 `/docs`。代码在私有仓库，jarvis 本地构建镜像；`ADMIN_TOKEN` 等密钥与两个 SQLite 数据库在 `${DATA_ROOT}/notification/`，push 前要先在 jarvis 上准备好，说明见 compose 文件开头。
 - `nitter`：X（Twitter）的只读前端，`http://nitter.jarvis`（端口 8085）。配置写在 compose 里；X 账号在 jarvis 上跑 `./services/nitter/add-session.sh` 添加（存在 `${DATA_ROOT}/nitter/`，不进仓库），说明见 compose 文件开头。

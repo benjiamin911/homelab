@@ -9,6 +9,8 @@ services:
     user: "${PUID:-1000}:${PGID:-1000}"
     ports:
       - "127.0.0.1:3081:3080"
+    volumes:
+      - "${DATA_ROOT:?DATA_ROOT 未在 .env 设置}/paper:/data"
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
@@ -17,6 +19,8 @@ services:
       TZ: "${TZ:-America/Los_Angeles}"
       HOSTNAME: "0.0.0.0"
       PORT: "3080"
+      PAPER_DATA_DIR: "/data"
+      PAPER_REQUEST_INTERVAL_MS: "15000"
       FREE_LLM_BASE_URL: "http://${BIND_ADDR:?BIND_ADDR 未在 .env 设置}:8090/v1"
       FREE_LLM_API_KEY: "${FREE_LLM_API_KEY:?FREE_LLM_API_KEY 未在 .env 设置}"
       FREE_LLM_MODEL: "auto"
