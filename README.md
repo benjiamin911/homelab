@@ -13,6 +13,8 @@ Docker Compose 服务集，部署在 jarvis，只经 Tailscale 访问。
 
 ## 已有服务
 
+Paper 扫描件会在 Jarvis 本地使用固定并校验摘要的高精度 OCR 模型识别，默认英文与简体中文，繁体可通过 `PAPER_OCR_LANGUAGES=eng+chi_tra` 启用；`PAPER_OCR_DPI` 默认 300。按页持久化进度，重启后续跑。每句原文左下角的页码脚注可查看并高亮对应 PDF 原图，定位不足时明确退回原页；参考分不是准确率，公式、数字和低清扫描仍需核验。图片预览不调用模型，OCR 图像也不外发；识别后的文字仍通过现有 Free LLM 分批解读。升级前应备份 SQLite，旧解读只补定位、不重新生成。
+
 网页服务都能按名字打开：`http://<名字>.jarvis`，首页 `http://jarvis/` 列出全部（见下一节）；原来的 `http://jarvis:<端口>` 照常可用。
 
 - `uptime-kuma`：监控，`http://kuma.jarvis`（端口 3001）。
