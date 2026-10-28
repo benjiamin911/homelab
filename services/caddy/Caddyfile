@@ -84,6 +84,10 @@ http://nitter.{$PROXY_ZONE} {
 	import proxy {$BIND_ADDR}:8085
 }
 
+http://world.{$PROXY_ZONE}, http://:3003 {
+	import proxy 127.0.0.1:3003
+}
+
 http://paper.{$PROXY_ZONE}, http://:3080 {
 	import proxy 127.0.0.1:3081
 }

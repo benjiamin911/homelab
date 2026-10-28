@@ -1,0 +1,3 @@
+include:
+  - path: "${WORLD_JARVIS_SRC:?WORLD_JARVIS_SRC 未在 .env 设置}/compose.yml"
+    env_file: "${DATA_ROOT:?DATA_ROOT 未在 .env 设置}/worldmonitor/app.env"

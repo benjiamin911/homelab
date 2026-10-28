@@ -25,6 +25,7 @@ Paper 扫描件会在 Jarvis 本地使用固定并校验摘要的高精度 OCR �
 - `security-hot`：信息安全热点网站，`http://news.jarvis`（端口 3002），后台只认 tailnet 来源。代码在私有仓库，jarvis 本地构建镜像；站点配置与密钥放在 `${DATA_ROOT}/security-hot/`，说明见 compose 文件开头。
 - `notification`：统一通知 API（Lark 群自定义机器人与自建应用机器人），`http://notify.jarvis`（端口 8787），接口文档 `/docs`。代码在私有仓库，jarvis 本地构建镜像；`ADMIN_TOKEN` 等密钥与两个 SQLite 数据库在 `${DATA_ROOT}/notification/`，push 前要先在 jarvis 上准备好，说明见 compose 文件开头。
 - `nitter`：X（Twitter）的只读前端，`http://nitter.jarvis`（端口 8085）。配置写在 compose 里；X 账号在 jarvis 上跑 `./services/nitter/add-session.sh` 添加（存在 `${DATA_ROOT}/nitter/`，不进仓库），说明见 compose 文件开头。
+- `worldmonitor`：全球态势看板，`http://world.jarvis` 或 `http://jarvis:3003`；应用只发布 `127.0.0.1:3003`，两个入口均由 Caddy 限定 tailnet 访问。配置和固定版本源码由私有仓库 `benjiamin911/world-jarvis` 独立管理，克隆时使用 `--recurse-submodules`，本机 `.env` 设置 `WORLD_JARVIS_SRC`。先按该仓库 README 初始化 `${DATA_ROOT}/worldmonitor/app.env`，再执行 `./deploy.sh up worldmonitor`。缓存与采集状态均在 `${DATA_ROOT}/worldmonitor/`；默认不启用模型或收费数据源。
 - `caddy`：按名字分流的反向代理，只听 Tailscale IP 的 80 端口。路由在 `services/caddy/Caddyfile`，首页在 `services/caddy/site/index.html`。
 - `dns`：CoreDNS，只听 Tailscale IP 的 53 端口，把 `jarvis` 和它下面的任意名字都解析到 jarvis。
 
