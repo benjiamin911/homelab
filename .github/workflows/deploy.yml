@@ -11,13 +11,25 @@ jobs:
     # dedicated runner registered to this repo, living on the homelab host
     runs-on: [self-hosted, homelab]
     steps:
+      - name: Protect uncommitted deployment changes
+        id: local
+        run: |
+          if [ -n "$(git -C "$HOME/Projects/homelab" status --porcelain)" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Local homelab checkout has uncommitted changes; skip reset and deploy until reconciled."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Pull latest into the canonical checkout (where .env lives)
+        if: steps.local.outputs.skip != 'true'
         run: |
           git -C "$HOME/Projects/homelab" fetch origin main
           git -C "$HOME/Projects/homelab" reset --hard origin/main
       - name: Deploy all services (idempotent)
+        if: steps.local.outputs.skip != 'true'
         run: |
           "$HOME/Projects/homelab/deploy.sh" up
       - name: Status
+        if: steps.local.outputs.skip != 'true'
         run: |
           "$HOME/Projects/homelab/deploy.sh" ps

@@ -20,7 +20,7 @@ services:
     user: "${PUID:-1000}:${PGID:-1000}"
     # 主机网络、直接监听 Tailscale IP：jarvis 重启时若 Docker 先于 tailscale0 起来，监听失败的进程退出、按重启策略重试，
     # Tailscale IP 就绪后自然恢复；发布端口（docker-proxy）遇到同样情况整个容器起不来、也不重试（2026-10-25 重启后的
-    # uptime-kuma、syncthing）。代价是容器和宿主机共用网络，能连到只听 127.0.0.1 的服务；homelab TODO 里的
+    # uptime-kuma）。代价是容器和宿主机共用网络，能连到只听 127.0.0.1 的服务；homelab TODO 里的
     # net.ipv4.ip_nonlocal_bind=1 落地后可以改回 bridge 网络加发布端口。
     network_mode: host
     read_only: true

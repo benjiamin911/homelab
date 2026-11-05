@@ -2,7 +2,7 @@
 # 放在 homelab 仓库的 services/security-hot/compose.yml，然后 ./deploy.sh up security-hot。
 # homelab 的 .env 需要：
 #   SECURITY_HOT_SRC  jarvis 上的代码目录（私有仓库 benjiamin911/security-hot），例如 /home/stark/Projects/security-hot
-#   OBSIDIAN_ROOT     已有（Syncthing 用）；状态笔记写进 ${OBSIDIAN_ROOT}/Obsidian Vault/Project/Security Hot
+#   OBSIDIAN_ROOT     状态笔记写进 ${OBSIDIAN_ROOT}/Obsidian Vault/Project/Security Hot
 # 站点自己的配置与密钥在 ${DATA_ROOT}/security-hot/，不进仓库：
 #   app.env           站点环境变量（SITE_URL、数据库密码、会话密钥、开关等），权限 600
 #   credentials/      models.env（Free LLM 网关密钥），权限 600

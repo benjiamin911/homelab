@@ -46,10 +46,6 @@ http://kuma.{$PROXY_ZONE} {
 	import proxy {$BIND_ADDR}:3001
 }
 
-http://sync.{$PROXY_ZONE} {
-	import proxy {$BIND_ADDR}:8384
-}
-
 http://maestro.{$PROXY_ZONE} {
 	import proxy 127.0.0.1:4317
 }

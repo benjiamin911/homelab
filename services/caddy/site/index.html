@@ -30,7 +30,6 @@
 {{- /* 每行：名字、显示名、说明、原端口。加服务时在这里加一行，并在 Caddyfile 里加对应的一段。 */}}
 {{- range list
   (list "kuma" "Uptime Kuma" "服务监控" "3001")
-  (list "sync" "Syncthing" "Obsidian 同步" "8384")
   (list "llm" "Free LLM" "免费 LLM 网关：/v1 接口走这个名字，后台会跳到 jarvis:8090" "8090")
   (list "paper" "Paper 精读" "PDF 原文阅读、选句与真实 AI 逐句解读" "3080")
   (list "news" "信息安全热点" "网站与后台：会跳到 jarvis:3002" "3002")

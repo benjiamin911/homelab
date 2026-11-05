@@ -18,8 +18,6 @@ Paper 扫描件会在 Jarvis 本地使用固定并校验摘要的高精度 OCR �
 网页服务都能按名字打开：`http://<名字>.jarvis`，首页 `http://jarvis/` 列出全部（见下一节）；原来的 `http://jarvis:<端口>` 照常可用。
 
 - `uptime-kuma`：监控，`http://kuma.jarvis`（端口 3001）。
-- `syncthing`：Mac ↔ jarvis 双向同步 Obsidian 知识库 vault（Project 已并入其子文件夹），GUI `http://sync.jarvis`（端口 8384）。首次 `up` 后在 jarvis 上跑一次
-  `./services/syncthing/configure.sh`（幂等）配置文件夹 / 版本控制 / 只走 tailnet / GUI 密码；参数见 `.env.example`。
 - `free-llm`：免费 LLM 网关（OpenAI 兼容，`/v1` 与后台 `/admin`），`http://llm.jarvis`（端口 8090）。代码在私有仓库，jarvis 本地构建镜像；说明见 compose 文件开头。
 - `paper`：上传 PDF 后后台自动逐句解读，关闭浏览器后继续，原图与矢量图表穿插显示，`http://paper.jarvis` 或 `http://jarvis:3080`。单份上传默认 500 MB，可通过 `PAPER_MAX_UPLOAD_MB` 调整；`PAPER_DISK_RESERVE_MB` 默认保留 512 MB 磁盘空间。文库显示占用并可删除文章，清理 PDF、图表索引与解读，原图按需从 PDF 呈现、不额外保存图片副本。私有源码仓库为 `benjiamin911/paper`；先用只读 deploy key 克隆到 `PAPER_SRC`，并在本机 `.env` 设置该路径，再推送 homelab 配置。复用 `FREE_LLM_API_KEY`，不在本仓库存放密钥或 PDF。`${DATA_ROOT}/paper` 挂载为 `/data`，保存原始 PDF、SQLite 任务与逐句结果；部署前创建为 `${PUID}:${PGID}` 所有、`0700` 权限，不要删除已有数据。备份时停止容器后备份整个目录，升级图片索引前应备份 SQLite。全文会自动发送给网关及上游，禁止上传敏感内容。容器只发布 `127.0.0.1:3081`，两个对外入口均由 Caddy 执行 tailnet 来源校验。应用代码更新后执行 `git -C "$PAPER_SRC" pull --ff-only && ./deploy.sh up paper`。
 - `security-hot`：信息安全热点网站，`http://news.jarvis`（端口 3002），后台只认 tailnet 来源。代码在私有仓库，jarvis 本地构建镜像；站点配置与密钥放在 `${DATA_ROOT}/security-hot/`，说明见 compose 文件开头。
@@ -28,6 +26,8 @@ Paper 扫描件会在 Jarvis 本地使用固定并校验摘要的高精度 OCR �
 - `worldmonitor`：全球态势看板，`http://world.jarvis` 或 `http://jarvis:3003`；应用只发布 `127.0.0.1:3003`，两个入口均由 Caddy 限定 tailnet 访问。配置和固定版本源码由私有仓库 `benjiamin911/world-jarvis` 独立管理，克隆时使用 `--recurse-submodules`，本机 `.env` 设置 `WORLD_JARVIS_SRC`。先按该仓库 README 初始化 `${DATA_ROOT}/worldmonitor/app.env`，再执行 `./deploy.sh up worldmonitor`。缓存与采集状态均在 `${DATA_ROOT}/worldmonitor/`；默认不启用模型或收费数据源。
 - `caddy`：按名字分流的反向代理，只听 Tailscale IP 的 80 端口。路由在 `services/caddy/Caddyfile`，首页在 `services/caddy/site/index.html`。
 - `dns`：CoreDNS，只听 Tailscale IP 的 53 端口，把 `jarvis` 和它下面的任意名字都解析到 jarvis。
+
+个人 Obsidian Vault 由私有 Git 仓库和 Obsidian Git 交换；Home Server 不再运行 Syncthing。Security Hot 的状态笔记仍写在服务器本地 Vault，是否回到 Mac 取决于另行配置的 Git 发布路径。
 
 不在 Docker 里的 Maestro（systemd，端口 4317）也有名字：`http://maestro.jarvis`。
 
@@ -56,7 +56,7 @@ Paper 扫描件会在 Jarvis 本地使用固定并校验摘要的高精度 OCR �
 
 ## 自动部署（GitOps）
 
-push 到 `main` → 本机 self-hosted runner 自动执行 `deploy.sh up`。不用 SSH。
+push 到 `main` → 本机 self-hosted runner 自动执行 `deploy.sh up`。不用 SSH。若 jarvis 的部署工作副本有未提交改动，runner 会跳过硬重置和部署，先保留现场，待改动核对并纳管后再恢复自动部署。
 
 ## 自己的项目构建成镜像
 
